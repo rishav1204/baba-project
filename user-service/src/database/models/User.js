@@ -1,5 +1,4 @@
 import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
 
 const addressSchema = new mongoose.Schema({
   city: { type: String, trim: true },
@@ -48,7 +47,6 @@ const userSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    unique: true,
     trim: true,
     lowercase: true,
     match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
@@ -61,7 +59,6 @@ const userSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
-    unique: true,
     sparse: true,
     trim: true
   },
@@ -143,9 +140,9 @@ const userSchema = new mongoose.Schema({
 
 // Indexes for optimized queries
 userSchema.index({ email: 1 });
-userSchema.index({ phone: 1 });
+// userSchema.index({ phone: 1 });
 userSchema.index({ isDeleted: 1, isActive: 1 });
-userSchema.index({ location: '2dsphere' });
+// userSchema.index({ location: '2dsphere' });
 
 // Clean response data - remove sensitive fields
 userSchema.methods.toJSON = function() {
