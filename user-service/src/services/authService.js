@@ -31,7 +31,6 @@ export class AuthService {
     const user = await User.create({
       email,
       password: hashedPassword,
-      firstName: email.split('@')[0],
       deviceId,
       lastActive: now,
       lastLoggedIn: now,
