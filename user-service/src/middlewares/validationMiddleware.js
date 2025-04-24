@@ -1,4 +1,4 @@
-import { ValidationError } from '../utils/errors.js';
+import { ValidationError } from '../utils/Error.js';
 
 export const validateSignup = (req, res, next) => {
   const { email, password, confirmPassword } = req.body;

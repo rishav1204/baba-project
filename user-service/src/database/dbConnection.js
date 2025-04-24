@@ -1,9 +1,6 @@
 import mongoose from 'mongoose';
-import { logError } from '../utils/errorLogger.js';
 
 const DB_OPTIONS = {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
   autoIndex: true,
   serverSelectionTimeoutMS: 5000,
   socketTimeoutMS: 45000,
@@ -12,98 +9,97 @@ const DB_OPTIONS = {
   connectTimeoutMS: 10000
 };
 
-let connection = null;
+class DatabaseConnection {
+  static instance = null;
+  static connection = null;
 
-const connectDB = async () => {
-  try {
-    if (connection) {
-      return connection;
-    }
+  static async connect() {
+    try {
+      if (this.connection) {
+        console.log('Using existing database connection');
+        return this.connection;
+      }
 
-    mongoose.connection.on('connected', () => {
-      console.log('🌟 MongoDB connected successfully');
-    });
+      // Setup connection event handlers
+      mongoose.connection.on('connected', () => {
+        console.log('🌟 MongoDB connected successfully');
+      });
 
-    mongoose.connection.on('error', async (err) => {
-      await logError(err, { 
-        method: 'MongoDB_Connection',
-        path: 'database/connection',
-        error: {
-          severity: 'ERROR',
+      mongoose.connection.on('error', (err) => {
+        console.error('MongoDB connection error:', {
+          timestamp: new Date().toISOString(),
+          error: err.message,
           code: 'DB_CONNECTION_ERROR'
-        }
+        });
       });
-    });
 
-    mongoose.connection.on('disconnected', async () => {
-      const disconnectError = new Error('MongoDB disconnected');
-      await logError(disconnectError, {
-        method: 'MongoDB_Connection',
-        path: 'database/connection',
-        error: {
-          severity: 'WARNING',
+      mongoose.connection.on('disconnected', () => {
+        console.warn('MongoDB disconnected:', {
+          timestamp: new Date().toISOString(),
           code: 'DB_DISCONNECTED'
+        });
+      });
+
+      // Handle graceful shutdown
+      process.on('SIGINT', async () => {
+        try {
+          await mongoose.connection.close();
+          console.log('MongoDB connection closed through app termination');
+          process.exit(0);
+        } catch (error) {
+          console.error('Error during connection closure:', error);
+          process.exit(1);
         }
       });
-    });
 
-    process.on('SIGINT', async () => {
-      await mongoose.connection.close();
-      process.exit(0);
-    });
+      // Connect to MongoDB
+      if (!process.env.MONGODB_URI) {
+        throw new Error('MONGODB_URI is not defined in environment variables');
+      }
 
-    connection = await mongoose.connect(process.env.MONGODB_URI, DB_OPTIONS);
-    return connection;
-  } catch (error) {
-    await logError(error, {
-      method: 'MongoDB_Connection',
-      path: 'database/connection',
-      error: {
-        severity: 'ERROR',
+      this.connection = await mongoose.connect(process.env.MONGODB_URI, DB_OPTIONS);
+      console.log('New database connection established');
+      
+      return this.connection;
+    } catch (error) {
+      console.error('Database connection failed:', {
+        timestamp: new Date().toISOString(),
+        error: error.message,
         code: 'DB_INITIAL_CONNECTION_ERROR'
-      }
-    });
-    process.exit(1);
-  }
-};
-
-export const getConnection = async () => {
-  try {
-    if (!connection) {
-      connection = await connectDB();
+      });
+      throw error;
     }
-    return connection;
-  } catch (error) {
-    await logError(error, {
-      method: 'getConnection',
-      path: 'database/connection',
-      error: {
-        severity: 'ERROR',
-        code: 'DB_GET_CONNECTION_ERROR'
-      }
-    });
-    throw error;
   }
-};
 
-export const closeConnection = async () => {
-  try {
-    if (connection) {
-      await mongoose.connection.close();
-      connection = null;
-      console.log('MongoDB connection closed');
+  static async getConnection() {
+    if (!this.instance) {
+      this.instance = new DatabaseConnection();
+      await this.connect();
     }
-  } catch (error) {
-    await logError(error, {
-      method: 'closeConnection',
-      path: 'database/connection',
-      error: {
-        severity: 'WARNING',
+    return this.connection;
+  }
+
+  static async closeConnection() {
+    try {
+      if (this.connection) {
+        await mongoose.connection.close();
+        this.connection = null;
+        this.instance = null;
+        console.log('Database connection closed successfully');
+      }
+    } catch (error) {
+      console.error('Error closing database connection:', {
+        timestamp: new Date().toISOString(),
+        error: error.message,
         code: 'DB_CLOSE_CONNECTION_ERROR'
-      }
-    });
-    throw error;
+      });
+      throw error;
+    }
   }
-};
+}
+
+export const connectDB = () => DatabaseConnection.connect();
+export const getConnection = () => DatabaseConnection.getConnection();
+export const closeConnection = () => DatabaseConnection.closeConnection();
 
 export default connectDB;
