@@ -34,7 +34,7 @@ const locationSchema = new mongoose.Schema({
 const userSchema = new mongoose.Schema({
   firstName: {
     type: String,
-    required: true,
+    required: false,
     trim: true,
     minlength: 2,
     maxlength: 50
@@ -59,8 +59,13 @@ const userSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
-    sparse: true,
-    trim: true
+    sparse: true,  // This is correct
+    index: {       // Add this configuration
+      unique: true,
+      sparse: true // This ensures unique index ignores null values
+    },
+    trim: true,
+    default: null
   },
   age: {
     type: Number,
