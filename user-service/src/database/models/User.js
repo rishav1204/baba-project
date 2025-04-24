@@ -53,7 +53,9 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true,
+    required: function() {
+      return this.loggedInType === 'EMAIL'; // Only required for email signup
+    },
     minlength: 8,
     select: false
   },
@@ -84,6 +86,14 @@ const userSchema = new mongoose.Schema({
   deviceId: {
     type: String,
     trim: true
+  },
+  googleId: {
+    type: String,
+    sparse: true,
+    index: {
+      unique: true,
+      sparse: true
+    }
   },
   lastLoggedIn: {
     type: Date

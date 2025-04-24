@@ -21,4 +21,26 @@ export class AuthController {
       next(error);
     }
   }
+
+  static async signupWithGoogle(req, res, next) {
+    try {
+      const { token, latitude, longitude } = req.body;
+      
+      const user = await AuthService.signupWithGoogle({ 
+        token,
+        headers: req.headers,
+        location: latitude && longitude ? {
+          type: 'Point',
+          coordinates: [longitude, latitude]
+        } : undefined
+      });
+      
+      return ApiResponse.success(res, {
+        message: 'Google signup successful',
+        data: user
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
