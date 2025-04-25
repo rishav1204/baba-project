@@ -1,27 +1,28 @@
-import { ValidationError } from '../utils/Error.js';
-import { PasswordUtil } from '../utils/passwordUtility.js';
-import { TokenUtil } from '../utils/Token.js';
-import User from '../database/models/User.js';
+import { ValidationError } from "../utils/Error.js";
+import { PasswordUtil } from "../utils/passwordUtility.js";
+import { TokenUtil } from "../utils/Token.js";
+import User from "../database/models/User.js";
 
 export class AuthService {
   static async signupWithEmail({ email, password, confirmPassword, headers }) {
     // Check if passwords match
     if (password !== confirmPassword) {
-      throw new ValidationError('Passwords do not match');
+      throw new ValidationError("Passwords do not match");
     }
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      throw new ValidationError('Email already registered');
+      throw new ValidationError("Email already registered");
     }
 
     // Get device info from headers
-    const deviceId = headers['x-device-id'] || 
-                    headers['x-fingerprint'] || 
-                    headers['user-agent']?.replace(/\s/g, '') || 
-                    null;
-    const currentVersion = headers['x-app-version'] || '1.0.0';
+    const deviceId =
+      headers["x-device-id"] ||
+      headers["x-fingerprint"] ||
+      headers["user-agent"]?.replace(/\s/g, "") ||
+      null;
+    const currentVersion = headers["x-app-version"] || "1.0.0";
     const now = new Date();
 
     // Hash password
@@ -34,9 +35,9 @@ export class AuthService {
       deviceId,
       lastActive: now,
       lastLoggedIn: now,
-      webLastLoggedIn: headers['x-platform'] === 'web' ? now : null,
+      webLastLoggedIn: headers["x-platform"] === "web" ? now : null,
       currentVersion,
-      loggedInType: 'EMAIL',
+      loggedInType: "EMAIL",
       emailVerified: false,
       isVerified: false,
       isActive: true,
@@ -50,7 +51,47 @@ export class AuthService {
     // Return user data with token
     return {
       user: user.toJSON(), // This will include createdAt and updatedAt
-      token
+      token,
     };
   }
 }
+
+export const loginWithEmail = async ({ email, password, headers }) => {
+  // Check if user exists
+  const user = await User.findOne({ email });
+  if (!user) {
+    throw new ValidationError("Invalid email or password");
+  }
+  const isPasswordValid = await PasswordUtil.comparePassword(
+    password,
+    user.password
+  );
+  if (!isPasswordValid) {
+    throw new ValidationError("Invalid email or password");
+  }
+
+  // Get device info from headers
+  const deviceId =
+    headers["x-device-id"] ||
+    headers["x-fingerprint"] ||
+    headers["user-agent"]?.replace(/\s/g, "") ||
+    null;
+  const currentVersion = headers["x-app-version"] || "1.0.0";
+  const now = new Date();
+
+  // Update user last active and logged in time
+  user.lastActive = now;
+  user.lastLoggedIn = now;
+  user.currentVersion = currentVersion;
+  user.deviceId = deviceId;
+  await user.save();
+
+  // Generate token
+  const token = TokenUtil.generateToken(user);
+
+  // Return user data with token
+  return {
+    user: user.toJSON(), // This will include createdAt and updatedAt
+    token,
+  };
+};
