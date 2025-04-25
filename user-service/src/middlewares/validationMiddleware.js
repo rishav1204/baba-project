@@ -22,3 +22,13 @@ export const validateSignup = (req, res, next) => {
 
   next();
 };
+
+export const validateGoogleSignup = (req, res, next) => {
+  const { token } = req.body;
+
+  if (!token) {
+    throw new ValidationError('Google token is required');
+  }
+
+  next();
+};
